@@ -49,7 +49,7 @@ struct SharedLibrary
             const errorMsg = dlerror();
             if (errorMsg !is null)
                 errnoEnforce(false, cast(string) errorMsg[0 .. strlen(errorMsg)]);
-            errnoEnforce(false, "failed to dlsym(3) by unknown reason.");
+            errnoEnforce(false, "failed to dlclose(3) by unknown reason.");
         }
     }
 

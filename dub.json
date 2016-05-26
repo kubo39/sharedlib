@@ -1,7 +1,7 @@
 {
-	"name": "sharedlib",
+    "name": "sharedlib",
     "description": "Dynamic linking and loading utilities",
-	"authors": ["kubo39"],
+    "authors": ["kubo39"],
     "license": "MIT",
     "targetType": "library",
     "targetPath": "build"

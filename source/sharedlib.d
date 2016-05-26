@@ -66,12 +66,26 @@ struct SharedLibrary
         }
         return symbol;
     }
+
+    // utility for getting the adress of library loaded.
+    void* getLoadedAddr()
+    {
+        return cast(void*) *cast(const size_t*) handle;
+    }
 }
 
 
 unittest
 {
-    auto libm = new SharedLibrary("libm.so\0".ptr, RTLD_LAZY);
-    auto ceil = cast(double function(double)) libm.get("ceil\0".ptr);
-    assert(ceil(0.45) == 1);
+    {
+        auto libm = new SharedLibrary("libm.so\0".ptr, RTLD_LAZY);
+        auto ceil = cast(double function(double)) libm.get("ceil\0".ptr);
+        assert(ceil(0.45) == 1);
+    }
+
+    {
+        auto libm = new SharedLibrary("libm.so\0".ptr, RTLD_LAZY);
+        auto addr = libm.getLoadedAddr();
+        assert(addr !is null);
+    }
 }

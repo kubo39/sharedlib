@@ -9,6 +9,9 @@ import core.stdc.string;
 import std.exception;
 
 
+version(Posix):
+
+
 immutable int RTLD_LAZY = 1;
 immutable int RTLD_NOW = 2;
 
@@ -77,15 +80,26 @@ struct SharedLibrary
 
 unittest
 {
+    string libm;
+
+    version(linux)
     {
-        auto libm = new SharedLibrary("libm.so\0".ptr, RTLD_LAZY);
-        auto ceil = cast(double function(double)) libm.get("ceil\0".ptr);
+        libm = "libm.so\0";
+    }
+    else version(OSX)
+    {
+        libm = "libm.dylib\0";
+    }
+
+    {
+        auto lib = new SharedLibrary(libm.ptr, RTLD_LAZY);
+        auto ceil = cast(double function(double)) lib.get("ceil\0".ptr);
         assert(ceil(0.45) == 1);
     }
 
     {
-        auto libm = new SharedLibrary("libm.so\0".ptr, RTLD_LAZY);
-        auto addr = libm.getLoadedAddr();
+        auto lib = new SharedLibrary(libm.ptr, RTLD_LAZY);
+        auto addr = lib.getLoadedAddr();
         assert(addr !is null);
     }
 }

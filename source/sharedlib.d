@@ -13,8 +13,10 @@ import std.string : toStringz;
 version(Posix):
 
 
+immutable int RTLD_LOCAL = 0;
 immutable int RTLD_LAZY = 1;
 immutable int RTLD_NOW = 2;
+immutable int RTLD_GLOBAL = 3;
 
 
 /**

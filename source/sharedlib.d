@@ -20,7 +20,7 @@ immutable int RTLD_GLOBAL = 3;
 
 
 /**
-   This is a wrapper of UNIX-specified dynamic-linking and loading.
+   This is a wrapper of UNIX-specified dynamic loading.
    See `man 3 dlopen`.
  */
 struct SharedLibrary

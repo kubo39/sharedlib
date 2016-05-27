@@ -7,6 +7,7 @@ import core.stdc.errno;
 import core.stdc.string;
 
 import std.exception;
+import std.string : toStringz;
 
 
 version(Posix):
@@ -24,9 +25,9 @@ struct SharedLibrary
 {
     void* handle;
 
-    this(const char* filename, int flags)
+    this(in string filename, int flags)
     {
-        handle = dlopen(filename, flags);
+        handle = dlopen(filename.toStringz, flags);
         if (handle is null)
         {
             const errorMsg = dlerror();
@@ -57,9 +58,9 @@ struct SharedLibrary
     }
 
 
-    auto get(in char* symbolName)
+    auto get(in string symbolName)
     {
-        const symbol = dlsym(handle, symbolName);
+        const symbol = dlsym(handle, symbolName.toStringz);
         if (symbol is null)
         {
             const errorMsg = dlerror();
@@ -84,21 +85,21 @@ unittest
 
     version(linux)
     {
-        libm = "libm.so\0";
+        libm = "libm.so";
     }
     else version(OSX)
     {
-        libm = "libm.dylib\0";
+        libm = "libm.dylib";
     }
 
     {
-        auto lib = new SharedLibrary(libm.ptr, RTLD_LAZY);
-        auto ceil = cast(double function(double)) lib.get("ceil\0".ptr);
+        auto lib = new SharedLibrary(libm, RTLD_LAZY);
+        auto ceil = cast(double function(double)) lib.get("ceil");
         assert(ceil(0.45) == 1);
     }
 
     {
-        auto lib = new SharedLibrary(libm.ptr, RTLD_LAZY);
+        auto lib = new SharedLibrary(libm, RTLD_LAZY);
         auto addr = lib.getLoadedAddr();
         assert(addr !is null);
     }

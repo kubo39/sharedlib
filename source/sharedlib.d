@@ -88,7 +88,7 @@ struct SharedLibrary
     version (linux)
     {
         // Using libm.so gots invalid ELF Header.
-        string libm = "libm-2.24.so";
+        string libm = "libm.so.6";
     }
     else version (OSX)
     {

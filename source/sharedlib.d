@@ -8,7 +8,7 @@ import std.exception;
 import std.string : toStringz;
 
 
-version(Posix):
+version (Posix):
 
 
 /**
@@ -85,15 +85,13 @@ struct SharedLibrary
 
 @system unittest
 {
-    string libm;
-
-    version(linux)
+    version (linux)
     {
-        libm = "libm.so";
+        string libm = "libm.so";
     }
-    else version(OSX)
+    else version (OSX)
     {
-        libm = "libm.dylib";
+        string libm = "libm.dylib";
     }
 
     {

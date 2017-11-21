@@ -1,11 +1,9 @@
 module sharedlib;
 
-import core.sys.posix.unistd;
-import core.sys.posix.dlfcn;
-
 import core.stdc.errno;
 import core.stdc.string;
-
+import core.sys.posix.dlfcn;
+import core.sys.posix.unistd;
 import std.exception;
 import std.string : toStringz;
 
@@ -13,6 +11,9 @@ import std.string : toStringz;
 version(Posix):
 
 
+/**
+See `man 3 dlopen`.
+*/
 immutable int RTLD_LOCAL = 0;
 immutable int RTLD_LAZY = 1;
 immutable int RTLD_NOW = 2;
@@ -27,6 +28,7 @@ struct SharedLibrary
 {
     void* handle;
 
+    ///
     this(in string filename, int flags)
     {
         handle = dlopen(filename.toStringz, flags);
@@ -46,7 +48,7 @@ struct SharedLibrary
             close();
     }
 
-
+    ///
     void close()
     {
         const ret = dlclose(handle);
@@ -59,7 +61,7 @@ struct SharedLibrary
         }
     }
 
-
+    ///
     auto get(in string symbolName)
     {
         const symbol = dlsym(handle, symbolName.toStringz);
@@ -81,7 +83,7 @@ struct SharedLibrary
 }
 
 
-unittest
+@system unittest
 {
     string libm;
 
@@ -102,7 +104,7 @@ unittest
 
     {
         auto lib = new SharedLibrary(libm, RTLD_LAZY);
-        auto addr = lib.getLoadedAddr();
+        const addr = lib.getLoadedAddr();
         assert(addr !is null);
     }
 }

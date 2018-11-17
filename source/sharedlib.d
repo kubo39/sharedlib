@@ -2,6 +2,8 @@ module sharedlib;
 
 import core.stdc.errno;
 import core.stdc.string;
+import core.atomic;
+import core.sync.mutex;
 import core.sys.posix.dlfcn;
 import core.sys.posix.unistd;
 import std.exception;
@@ -20,6 +22,33 @@ immutable int RTLD_NOW = 2;
 immutable int RTLD_GLOBAL = 3;
 
 
+/// To guard all uses libdl our own mutex.
+/// This code is stallen from std.concurrency.
+private @property shared(Mutex) initOnceLock()
+{
+    static shared Mutex lock;
+    if (auto mtx = atomicLoad!(MemoryOrder.acq)(lock))
+        return mtx;
+    auto mtx = new shared Mutex;
+    if (cas(&lock, cast(shared) null, mtx))
+        return mtx;
+    return atomicLoad!(MemoryOrder.acq)(lock);
+}
+
+
+/// Whole error in libdl is shared at global state.
+/// So need to guard all uses of libdl with mutex.
+private string DlerrorWithFuncName(string funcName)
+{
+    return "auto m = initOnceLock();" ~
+        "m.lock();" ~
+        "scope (exit) m.unlock();" ~
+        "const errorMsg = dlerror();" ~
+        "if (errorMsg !is null)" ~
+        "errnoEnforce(false, cast(string) errorMsg[0 .. strlen(errorMsg)]);" ~
+        `errnoEnforce(false, "failed to ` ~ funcName ~ ` by unknown reason.");`;
+}
+
 /**
    This is a wrapper of UNIX-specified dynamic loading.
    See `man 3 dlopen`.
@@ -34,13 +63,9 @@ struct SharedLibrary
         handle = dlopen(filename.toStringz, flags);
         if (handle is null)
         {
-            const errorMsg = dlerror();
-            if (errorMsg !is null)
-                errnoEnforce(false, cast(string) errorMsg[0 .. strlen(errorMsg)]);
-            errnoEnforce(false, "failed to dlopen(3) by unknown reason.");
+            mixin(DlerrorWithFuncName("dlopen(3)"));
         }
     }
-
 
     ~this()
     {
@@ -54,10 +79,7 @@ struct SharedLibrary
         const ret = dlclose(handle);
         if (ret != 0)
         {
-            const errorMsg = dlerror();
-            if (errorMsg !is null)
-                errnoEnforce(false, cast(string) errorMsg[0 .. strlen(errorMsg)]);
-            errnoEnforce(false, "failed to dlclose(3) by unknown reason.");
+            mixin(DlerrorWithFuncName("dlclose(3)"));
         }
     }
 
@@ -67,10 +89,7 @@ struct SharedLibrary
         const symbol = dlsym(handle, symbolName.toStringz);
         if (symbol is null)
         {
-            const errorMsg = dlerror();
-            if (errorMsg !is null)
-                errnoEnforce(false, cast(string) errorMsg[0 .. strlen(errorMsg)]);
-            errnoEnforce(false, "failed to dlsym(3) by unknown reason.");
+            mixin(DlerrorWithFuncName("dlsym(3)"));
         }
         return symbol;
     }

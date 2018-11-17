@@ -4,3 +4,5 @@ __dummy.html
 *.o
 *.obj
 build
+*.a
+*-test-library

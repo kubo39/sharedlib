@@ -1,8 +1,7 @@
 {
     "name": "sharedlib",
     "description": "Dynamic linking and loading utilities",
-    "authors": ["kubo39"],
+    "authors": ["Hiroki Noda"],
     "license": "MIT",
-    "targetType": "library",
-    "targetPath": "build"
+    "targetType": "library"
 }

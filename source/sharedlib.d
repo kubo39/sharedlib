@@ -38,15 +38,18 @@ private @property shared(Mutex) initOnceLock()
 
 /// Whole error in libdl is shared at global state.
 /// So need to guard all uses of libdl with mutex.
-private string DlerrorWithFuncName(string funcName)
+private void dlerrorWithFunc(bool delegate() del, string funcName)
 {
-    return "auto m = initOnceLock();" ~
-        "m.lock();" ~
-        "scope (exit) m.unlock();" ~
-        "const errorMsg = dlerror();" ~
-        "if (errorMsg !is null)" ~
-        "errnoEnforce(false, cast(string) errorMsg[0 .. strlen(errorMsg)]);" ~
-        `errnoEnforce(false, "failed to ` ~ funcName ~ ` by unknown reason.");`;
+    if (!del())
+    {
+        auto m = initOnceLock();
+        m.lock();
+        scope (exit) m.unlock();
+        const errorMsg = dlerror();
+        if (errorMsg !is null)
+            errnoEnforce(false, cast(string) errorMsg[0 .. strlen(errorMsg)]);
+        errnoEnforce(false, "failed to " ~ funcName ~ " by unknown reason.");
+    }
 }
 
 /**
@@ -60,44 +63,42 @@ struct SharedLibrary
     ///
     this(in string filename, int flags)
     {
-        handle = dlopen(filename.toStringz, flags);
-        if (handle is null)
-        {
-            mixin(DlerrorWithFuncName("dlopen(3)"));
-        }
+        dlerrorWithFunc(() {
+                this.handle = dlopen(filename.toStringz, flags);
+                return this.handle !is null;
+            }, "dlopen(3)");
     }
 
     ~this()
     {
-        if (handle !is null)
+        if (this.handle !is null)
             close();
     }
 
     ///
     void close()
     {
-        const ret = dlclose(handle);
-        if (ret != 0)
-        {
-            mixin(DlerrorWithFuncName("dlclose(3)"));
-        }
+        dlerrorWithFunc(() {
+                const ret = dlclose(this.handle);
+                return ret == 0;
+            }, "dlclose(3)");
     }
 
     ///
     auto get(in string symbolName)
     {
-        const symbol = dlsym(handle, symbolName.toStringz);
-        if (symbol is null)
-        {
-            mixin(DlerrorWithFuncName("dlsym(3)"));
-        }
+        void* symbol;
+        dlerrorWithFunc(() {
+                symbol = dlsym(this.handle, symbolName.toStringz);
+                return symbol !is null;
+            }, "dlsym(3)");
         return symbol;
     }
 
     // utility for getting the adress of library loaded.
     void* getLoadedAddr()
     {
-        return cast(void*) *cast(const size_t*) handle;
+        return cast(void*) *cast(const size_t*) this.handle;
     }
 }
 
@@ -116,6 +117,7 @@ struct SharedLibrary
 
     {
         auto lib = new SharedLibrary(libm, RTLD_LAZY);
+        import std.stdio;
         auto ceil = cast(double function(double)) lib.get("ceil");
         assert(ceil(0.45) == 1);
     }

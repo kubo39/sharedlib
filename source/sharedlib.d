@@ -38,15 +38,18 @@ private @property shared(Mutex) initOnceLock()
 
 /// Whole error in libdl is shared at global state.
 /// So need to guard all uses of libdl with mutex.
-private string DlerrorWithFuncName(string funcName)
+private void dlerrorWithFunc(string funcName)(bool delegate() del)
 {
-    return "auto m = initOnceLock();" ~
-        "m.lock();" ~
-        "scope (exit) m.unlock();" ~
-        "const errorMsg = dlerror();" ~
-        "if (errorMsg !is null)" ~
-        "errnoEnforce(false, cast(string) errorMsg[0 .. strlen(errorMsg)]);" ~
-        `errnoEnforce(false, "failed to ` ~ funcName ~ ` by unknown reason.");`;
+    if (!del())
+    {
+        auto m = initOnceLock();
+        m.lock();
+        scope (exit) m.unlock();
+        const errorMsg = dlerror();
+        if (errorMsg !is null)
+            errnoEnforce(false, cast(string) errorMsg[0 .. strlen(errorMsg)]);
+        errnoEnforce(false, "failed to " ~ funcName ~ " by unknown reason.");
+    }
 }
 
 /**
@@ -60,44 +63,43 @@ struct SharedLibrary
     ///
     this(in string filename, int flags)
     {
-        handle = dlopen(filename.toStringz, flags);
-        if (handle is null)
-        {
-            mixin(DlerrorWithFuncName("dlopen(3)"));
-        }
+        dlerrorWithFunc!"dlopen(3)"(() {
+                this.handle = dlopen(filename.toStringz, flags);
+                return this.handle !is null;
+            });
     }
 
     ~this()
     {
-        if (handle !is null)
-            close();
+        /// destructor cannot raise exception, so only call dlclose(3).
+        if (this.handle !is null)
+            dlclose(this.handle);
     }
 
     ///
     void close()
     {
-        const ret = dlclose(handle);
-        if (ret != 0)
-        {
-            mixin(DlerrorWithFuncName("dlclose(3)"));
-        }
+        dlerrorWithFunc!"dlclose(3)"(() {
+                const ret = dlclose(this.handle);
+                return ret == 0;
+            });
     }
 
     ///
     auto get(in string symbolName)
     {
-        const symbol = dlsym(handle, symbolName.toStringz);
-        if (symbol is null)
-        {
-            mixin(DlerrorWithFuncName("dlsym(3)"));
-        }
+        void* symbol;
+        dlerrorWithFunc!"dlsym(3)"(() {
+                symbol = dlsym(this.handle, symbolName.toStringz);
+                return symbol !is null;
+            });
         return symbol;
     }
 
     // utility for getting the adress of library loaded.
     void* getLoadedAddr()
     {
-        return cast(void*) *cast(const size_t*) handle;
+        return cast(void*) *cast(const size_t*) this.handle;
     }
 }
 

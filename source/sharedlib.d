@@ -71,8 +71,9 @@ struct SharedLibrary
 
     ~this()
     {
+        /// destructor cannot raise exception, so only call dlclose(3).
         if (this.handle !is null)
-            close();
+            dlclose(this.handle);
     }
 
     ///

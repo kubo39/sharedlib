@@ -38,7 +38,7 @@ private @property shared(Mutex) initOnceLock()
 
 /// Whole error in libdl is shared at global state.
 /// So need to guard all uses of libdl with mutex.
-private void dlerrorWithFunc(bool delegate() del, string funcName)
+private void dlerrorWithFunc(string funcName)(bool delegate() del)
 {
     if (!del())
     {
@@ -63,10 +63,10 @@ struct SharedLibrary
     ///
     this(in string filename, int flags)
     {
-        dlerrorWithFunc(() {
+        dlerrorWithFunc!"dlopen(3)"(() {
                 this.handle = dlopen(filename.toStringz, flags);
                 return this.handle !is null;
-            }, "dlopen(3)");
+            });
     }
 
     ~this()
@@ -78,20 +78,20 @@ struct SharedLibrary
     ///
     void close()
     {
-        dlerrorWithFunc(() {
+        dlerrorWithFunc!"dlclose(3)"(() {
                 const ret = dlclose(this.handle);
                 return ret == 0;
-            }, "dlclose(3)");
+            });
     }
 
     ///
     auto get(in string symbolName)
     {
         void* symbol;
-        dlerrorWithFunc(() {
+        dlerrorWithFunc!"dlsym(3)"(() {
                 symbol = dlsym(this.handle, symbolName.toStringz);
                 return symbol !is null;
-            }, "dlsym(3)");
+            });
         return symbol;
     }
 
@@ -117,7 +117,6 @@ struct SharedLibrary
 
     {
         auto lib = new SharedLibrary(libm, RTLD_LAZY);
-        import std.stdio;
         auto ceil = cast(double function(double)) lib.get("ceil");
         assert(ceil(0.45) == 1);
     }

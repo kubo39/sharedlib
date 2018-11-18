@@ -69,11 +69,16 @@ struct SharedLibrary
             });
     }
 
-    ~this()
+    ~this() nothrow @nogc
     {
+        import core.internal.abort : abort;
         /// destructor cannot raise exception, so only call dlclose(3).
         if (this.handle !is null)
-            dlclose(this.handle);
+        {
+            const ret = dlclose(this.handle);
+            if (ret != 0)
+                abort("Error: dlclose(3) failed.");
+        }
     }
 
     ///

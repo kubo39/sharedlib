@@ -16,10 +16,10 @@ version (Posix):
 /**
 See `man 3 dlopen`.
 */
-immutable int RTLD_LOCAL = 0;
-immutable int RTLD_LAZY = 1;
-immutable int RTLD_NOW = 2;
-immutable int RTLD_GLOBAL = 3;
+enum RTLD_LOCAL = 0;
+enum RTLD_LAZY = 1;
+enum RTLD_NOW = 2;
+enum RTLD_GLOBAL = 3;
 
 
 /// To guard all uses libdl our own mutex.
@@ -38,17 +38,18 @@ private @property shared(Mutex) initOnceLock()
 
 /// Whole error in libdl is shared at global state.
 /// So need to guard all uses of libdl with mutex.
-private void dlerrorWithFunc(string funcName)(bool delegate() del)
+private void dlerrorWithFunc(bool delegate() del)
 {
+    auto m = initOnceLock();
+    m.lock();
+    scope (exit) m.unlock();
+
     if (!del())
     {
-        auto m = initOnceLock();
-        m.lock();
-        scope (exit) m.unlock();
         const errorMsg = dlerror();
         if (errorMsg !is null)
             errnoEnforce(false, cast(string) errorMsg[0 .. strlen(errorMsg)]);
-        errnoEnforce(false, "failed to " ~ funcName ~ " by unknown reason.");
+        errnoEnforce(false, "failed unknown reason.");
     }
 }
 
@@ -61,9 +62,9 @@ struct SharedLibrary
     void* handle;
 
     ///
-    this(in string filename, int flags)
+    this(string filename, int flags)
     {
-        dlerrorWithFunc!"dlopen(3)"(() {
+        dlerrorWithFunc(() nothrow {
                 this.handle = dlopen(filename.toStringz, flags);
                 return this.handle !is null;
             });
@@ -84,17 +85,16 @@ struct SharedLibrary
     ///
     void close()
     {
-        dlerrorWithFunc!"dlclose(3)"(() {
-                const ret = dlclose(this.handle);
-                return ret == 0;
+        dlerrorWithFunc(() nothrow {
+                return dlclose(this.handle) == 0;
             });
     }
 
     ///
-    auto get(in string symbolName)
+    auto get(string symbolName)
     {
         void* symbol;
-        dlerrorWithFunc!"dlsym(3)"(() {
+        dlerrorWithFunc(() nothrow {
                 symbol = dlsym(this.handle, symbolName.toStringz);
                 return symbol !is null;
             });
@@ -102,7 +102,7 @@ struct SharedLibrary
     }
 
     // utility for getting the adress of library loaded.
-    void* getLoadedAddr()
+    void* getLoadedAddr() nothrow
     {
         return cast(void*) *cast(const size_t*) this.handle;
     }
